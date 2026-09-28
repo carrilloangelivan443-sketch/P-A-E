@@ -1,4 +1,3 @@
-
 package com.example.myapplication
 
 import android.os.Bundle
@@ -43,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.myapplication.ui.theme.MyApplicationTheme
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -60,18 +60,26 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainApp() {
     var loggedInBoleta by remember { mutableStateOf<String?>(value = null) }
+    var loggedInGrupo by remember { mutableStateOf<String?>(value = null) }
+    var loggedInHorario by remember { mutableStateOf<String?>(value = null) }
 
     if (loggedInBoleta == null) {
         LoginScreen(
-            onLoginSuccess = { boleta ->
+            onLoginSuccess = { boleta, grupo, horario ->
                 loggedInBoleta = boleta
+                loggedInGrupo = grupo
+                loggedInHorario = horario
             }
         )
     } else {
         HomeScreen(
             boleta = loggedInBoleta!!,
+            grupo = loggedInGrupo!!,
+            horario = loggedInHorario!!,
             onLogout = {
                 loggedInBoleta = null
+                loggedInGrupo = null
+                loggedInHorario = null
             }
         )
     }
@@ -79,21 +87,17 @@ fun MainApp() {
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (String) -> Unit
+    onLoginSuccess: (String, String, String) -> Unit
 ) {
     var boleta by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(value = false) }
     var errorMessage by remember { mutableStateOf<String?>(value = null) }
+    var isLoading by remember { mutableStateOf(false) }
 
-    val testCredentials = mapOf(
-        "2023600001" to "123",
-        "2024600002" to "politecnico",
-        "2022600003" to "admin"
-    )
+    val db = FirebaseFirestore.getInstance()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Nuevo fondo uniforme animado
         SmoothFluidBackground(modifier = Modifier.fillMaxSize())
 
         Column(
@@ -103,17 +107,16 @@ fun LoginScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top // <- Cambio para que no quede hasta abajo
+            verticalArrangement = Arrangement.Top
         ) {
 
-            Spacer(modifier = Modifier.height(48.dp)) // Separación del borde superior de la pantalla
+            Spacer(modifier = Modifier.height(48.dp))
 
             // Encabezado
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(bottom = 24.dp)
             ) {
-                // Logo oficial descargado en alta calidad
                 AsyncImage(
                     model = "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Logo_Instituto_Politecnico_Nacional.png/800px-Logo_Instituto_Politecnico_Nacional.png",
                     contentDescription = "Escudo Oficial IPN",
@@ -255,14 +258,50 @@ fun LoginScreen(
                         onClick = {
                             val inputBoleta = boleta.trim()
                             val inputPass = password.trim()
-                            val expectedPass = testCredentials[inputBoleta]
 
-                            if (expectedPass != null && expectedPass == inputPass) {
-                                onLoginSuccess(inputBoleta)
-                            } else {
-                                errorMessage = "Boleta o contraseña incorrecta"
+                            if (inputBoleta.isEmpty() || inputPass.isEmpty()) {
+                                errorMessage = "Ingresa boleta y contraseña"
+                                return@Button
                             }
+
+                            isLoading = true
+                            // Consulta a Firestore: Colección "Alumnos", documento con la boleta
+                            db.collection("Alumnos").document(inputBoleta)
+                                .get()
+                                .addOnSuccessListener { documento ->
+                                    isLoading = false
+                                    if (documento.exists()) {
+                                        val passwordRegistrada = documento.getString("Password")
+                                        if (passwordRegistrada == inputPass) {
+                                            val grupoDelAlumno = documento.getString("Grupo") ?: ""
+
+                                            // Consulta a la colección "Grupos" el documento del grupo (ej. "5IV11")
+                                            db.collection("Grupos").document(grupoDelAlumno)
+                                                .get()
+                                                .addOnSuccessListener { docGrupo ->
+                                                    val horario = if (docGrupo.exists()) {
+                                                        docGrupo.getString("Horario") ?: "Sin horario registrado"
+                                                    } else {
+                                                        "Horario no encontrado"
+                                                    }
+                                                    onLoginSuccess(inputBoleta, grupoDelAlumno, horario)
+                                                }
+                                                .addOnFailureListener {
+                                                    onLoginSuccess(inputBoleta, grupoDelAlumno, "No se pudo cargar el horario")
+                                                }
+                                        } else {
+                                            errorMessage = "Contraseña incorrecta"
+                                        }
+                                    } else {
+                                        errorMessage = "La boleta no está registrada"
+                                    }
+                                }
+                                .addOnFailureListener { e ->
+                                    isLoading = false
+                                    errorMessage = "Error de conexión: ${e.localizedMessage}"
+                                }
                         },
+                        enabled = !isLoading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
@@ -273,11 +312,18 @@ fun LoginScreen(
                         ),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
                     ) {
-                        Text(
-                            text = "INICIAR SESIÓN",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "INICIAR SESIÓN",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
                     }
                 }
             }
@@ -288,6 +334,8 @@ fun LoginScreen(
 @Composable
 fun HomeScreen(
     boleta: String,
+    grupo: String,
+    horario: String,
     onLogout: () -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -301,13 +349,10 @@ fun HomeScreen(
         drawerContent = {
             ModalDrawerSheet(
                 drawerContainerColor = Color.Transparent,
-                // 6.dp elimina lo afilado pero sin llegar a ser tan redondo
                 drawerShape = RoundedCornerShape(topEnd = 6.dp, bottomEnd = 6.dp),
-                // 0.95f hace que llene casi toda la pantalla (dejando un margen mínimo)
                 modifier = Modifier.fillMaxWidth(0.95f)
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // Fondo animado dentro del menú lateral
                     SmoothFluidBackground(modifier = Modifier.fillMaxSize())
 
                     Column(
@@ -339,6 +384,11 @@ fun HomeScreen(
                                     text = "Boleta: $boleta",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = Color(0xFFE0E0E0)
+                                )
+                                Text(
+                                    text = "Grupo: $grupo",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFFFFB4A2)
                                 )
                             }
                         }
@@ -457,7 +507,7 @@ fun HomeScreen(
                     )
                 }
 
-                // Tarjeta de bienvenida
+                // Tarjeta de bienvenida, grupo y horario obtenido de Firestore
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -474,11 +524,23 @@ fun HomeScreen(
                             color = ipnColor,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Has ingresado correctamente a tu portal académico con la boleta $boleta. Despliega el menú superior izquierdo para ver tus opciones.",
+                            text = "Boleta: $boleta",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.DarkGray
+                        )
+                        Text(
+                            text = "Grupo: $grupo",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ipnColor
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Horario: $horario",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
                         )
                     }
                 }
@@ -487,12 +549,10 @@ fun HomeScreen(
     }
 }
 
-// NUEVO FONDO: Uniforme, sin cortes bruscos y con movimiento suave de colores
 @Composable
 fun SmoothFluidBackground(modifier: Modifier = Modifier) {
     val infiniteTransition = rememberInfiniteTransition(label = "fluid_bg")
 
-    // Animación del primer color (Guinda claro a Guinda oscuro)
     val color1 by infiniteTransition.animateColor(
         initialValue = Color(0xFF550E28),
         targetValue = Color(0xFF8C1E46),
@@ -503,7 +563,6 @@ fun SmoothFluidBackground(modifier: Modifier = Modifier) {
         label = "color1"
     )
 
-    // Animación del segundo color (Casi negro a Guinda medio)
     val color2 by infiniteTransition.animateColor(
         initialValue = Color(0xFF14030A),
         targetValue = Color(0xFF370819),
@@ -529,7 +588,7 @@ fun SmoothFluidBackground(modifier: Modifier = Modifier) {
 @Composable
 fun LoginScreenPreview() {
     MyApplicationTheme {
-        LoginScreen(onLoginSuccess = {})
+        LoginScreen(onLoginSuccess = { _, _, _ -> })
     }
 }
 
@@ -537,6 +596,6 @@ fun LoginScreenPreview() {
 @Composable
 fun HomeScreenPreview() {
     MyApplicationTheme {
-        HomeScreen(boleta = "2023600001", onLogout = {})
+        HomeScreen(boleta = "2023600001", grupo = "5IV11", horario = "Lunes a Viernes 7:00 - 13:00 hrs", onLogout = {})
     }
 }
