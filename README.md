@@ -1,38 +1,10 @@
-# P-A-E
-🚀 Descripción del Proyecto
-
-PAE es una aplicación móvil nativa desarrollada en Kotlin (para Android) que surge como una reimaginación total del sistema escolar tradicional (SAES) del CECyT 5 "Benito Juárez" del IPN. Su filosofía principal es eliminar la fricción burocrática, depurar la información innecesaria y ofrecer una interfaz minimalista (inspirada en herramientas modernas como Google Classroom) que centralice las necesidades más vitales de la comunidad estudiantil.
-✨ Características Principales
-
-    Sesión Persistente: Inicio de sesión único sincronizado con bases de datos en la nube (Cloud Firestore), evitando accesos repetitivos.
-
-    Horario Acomodado: Interfaz visual optimizada que corrige los problemas de superposición y distribución del sistema web anterior.
-
-    Módulo Offline: Almacenamiento local para garantizar el acceso inmediato al Horario, Boleta e Inscripción actual sin necesidad de datos móviles en los filtros de entrada del plantel.
-
-    Asistente Virtual "Benitsito": Un agente inteligente (potenciado por la API de Gemini) representado por la mascota del plantel (el águila), entrenado con el Reglamento General de Estudios del IPN para orientar a los alumnos en trámites críticos 24/7.
-
-    Gestión Académica Integral: Menú lateral estructurado lógicamente para separar los avisos diarios de los trámites de continuidad académica (ETS, saberes previos, etc.).
-
-   [ FASE 1: ARQUITECTURA Y DISEÑO BASE ] (Completada 🟢)
- ├── Definición de la propuesta de investigación y objetivos[cite: 3, 7]
- ├── Estructura de navegación y diseño minimalista en Jetpack Compose[cite: 1]
- └── Configuración de la paleta institucional (Guinda #671C36 y Blanco)[cite: 3]
-
-[ FASE 2: CONEXIÓN EN LA NUBE Y AUTH ] (En proceso / Validando 🟡)
- ├── Integración de Firebase Firestore para alumnos y grupos[cite: 6, 8]
- ├── Validación de credenciales con boleta y contraseña persistente
- └── Carga dinámica del grupo (ej. 5IV11) para mostrar el horario correspondiente[cite: 6]
-
-[ FASE 3: MÓDULO OFFLINE Y MULTI-GRUPO ] (Siguiente paso ⏳)
- ├── Configuración de almacenamiento local (Room / SharedPreferences) para acceso sin internet[cite: 6, 7]
- └── Pruebas con múltiples perfiles y grupos de prueba del CECyT 5[cite: 6, 7]
-
-[ FASE 4: INTEGRACIÓN DE LA INTELIGENCIA ARTIFICIAL ] (Próximamente ⏳)
- ├── Conexión del SDK de la API de Gemini (Gemini Flash) para "Benitsito"[cite: 3, 4]
- ├── Inserción de las instrucciones de sistema (System Instructions) con el Reglamento del IPN
- └── Implementación del botón de respaldo offline (Árbol de decisiones en JSON)[cite: 4]
-
-[ FASE 5: PRUEBAS DE USUARIO Y PITCH ] (Meta Final 🏁)
- ├── Pruebas de usabilidad con compañeros del plantel[cite: 7]
- └── Ensayo de la presentación en vivo (Demostración desconectando internet y consulta a la IA)[cite: 4, 7] 
+1. Plan a Corto Plazo (1 - 2 meses): Autenticación, Arquitectura y SAES InformativoObjetivo: Consolidar las bases de datos y migrar el SAES tradicional a un formato limpio y de solo lectura.Conexión Firebase + SMSS: Tus compañeros pueden seguir trabajando en SQL Server para diseñar las tablas relacionales. Mientras tanto, Firebase Auth se encargará de validar que el alumno existe; una vez logueado, la app se comunicará a través de una API con SQL Server para extraer los datos del perfil.Módulo SAES Informativo: Observando "Un vistazo al SAES.pdf", la app debe tomar vistas clave como el Kárdex, el Estado General y el Horario y encapsularlas en un menú lateral. El SAES ya no será la pantalla principal, sino un archivo de consulta rápida.   Estructura de Usuarios: Crear roles claros en la base de datos de SMSS: Alumno_Regular, Jefe_de_Grupo y Profesor.
+ 
+  
+   
+    
+2. Plan a Mediano Plazo (3 - 4 meses): Módulo "Classroom" y Jefatura de GrupoObjetivo: Implementar la dinámica interactiva de clases, tareas y recolección de evidencias.Gestor de Tareas y Clases: Desarrollar en la pantalla principal de la app las tarjetas de clases. Los profesores podrán acceder con su rol para publicar avisos, subir archivos y asignar tareas, mientras que los alumnos podrán adjuntar sus entregas.Registro Automático de Clases: Vinculando el sistema con el Horario del SAES, la app mostrará automáticamente el "salón virtual" activo dependiendo de la hora del día y el grupo del alumno.   Herramienta para el Jefe de Grupo: Al detectar el rol de Jefe_de_Grupo en la base de datos, la interfaz habilitará un botón especial dentro de cada clase en curso. Esto le permitirá tomar fotografías o subir documentos como "Evidencia de Clase" directamente al servidor de la escuela para fines administrativos.
+  
+  
+  
+3. Plan a Largo Plazo (5+ meses): Videollamadas Nativas y Asistencia AutomáticaObjetivo: Garantizar la educación a distancia sin límites de tiempo en contingencias (como las marchas del 2 de octubre).Motor de Videollamadas sin límite: Para no depender de plataformas de terceros con límites de 40 minutos, pueden integrar un SDK de código abierto (como Jitsi Meet o WebRTC) directamente en el código de Kotlin.Acceso Restringido: Cuando un profesor inicie una videollamada, la aplicación cruzará el ID de la sesión con la lista del grupo en SQL Server. Si un usuario no está registrado en esa clase específica, el sistema bloqueará su entrada, evitando infiltrados.Toma de Asistencia Automatizada: Al ocurrir la llamada dentro del ecosistema de su app, el sistema registrará silenciosamente en SMSS la hora de entrada y salida de cada boleta conectada. Al finalizar la clase virtual, el profesor y el jefe de grupo recibirán un pase de lista exacto y automátic
